@@ -1,38 +1,39 @@
 package main
 
 import (
-    "fmt"
-    "mow/coordinates"
-    "sync"
+	"fmt"
+	"sync"
+
+	"mow/coordinates"
 )
 
 type Lawn struct {
-    XMax           int
-    YMax           int
-    lawnChan       chan *Mower
-    mowersPosition map[string]struct{}
+	XMax           int
+	YMax           int
+	lawnChan       chan *Mower
+	mowersPosition map[string]struct{}
 }
 
 func NewLawn(xmax, ymax int, mowers []*Mower) *Lawn {
-    l := &Lawn{
-        XMax:           xmax,
-        YMax:           ymax,
-        mowersPosition: make(map[string]struct{}),
-        lawnChan:       make(chan *Mower),
-    }
+	l := &Lawn{
+		XMax:           xmax,
+		YMax:           ymax,
+		mowersPosition: make(map[string]struct{}),
+		lawnChan:       make(chan *Mower),
+	}
 
-    for _, mower := range mowers {
-        mower.AddLawnChan(l.lawnChan)
+	for _, mower := range mowers {
+		mower.AddLawnChan(l.lawnChan)
 
-        currentPositionHash := mower.CurrentPosition.Hash()
-        if _, ok := l.mowersPosition[currentPositionHash]; ok {
-            panic("mowers already present at this position")
-        }
+		currentPositionHash := mower.CurrentPosition.Hash()
+		if _, ok := l.mowersPosition[currentPositionHash]; ok {
+			panic("mowers already present at this position")
+		}
 
-        l.mowersPosition[currentPositionHash] = struct{}{}
-    }
+		l.mowersPosition[currentPositionHash] = struct{}{}
+	}
 
-    return l
+	return l
 }
 
 /*
@@ -42,47 +43,47 @@ func NewLawn(xmax, ymax int, mowers []*Mower) *Lawn {
 	If not, it will discard the mower's move
 */
 func (l *Lawn) Run(wg *sync.WaitGroup) {
-    go func() {
-        for {
-            mower := <-l.lawnChan
-            currentPosition := mower.CurrentPosition
-            nextPosition := mower.CalculateNextPosition()
+	go func() {
+		for {
+			mower := <-l.lawnChan
+			currentPosition := mower.CurrentPosition
+			nextPosition := mower.CalculateNextPosition()
 
-            if l.isValidNextPosition(currentPosition, nextPosition) {
-                l.updateMowersPositionMap(currentPosition, nextPosition)
-                mower.Move(nextPosition)
-            } else {
-                fmt.Println("Invalid next position")
-                mower.DiscardMove()
-            }
+			if l.isValidNextPosition(currentPosition, nextPosition) {
+				l.updateMowersPositionMap(currentPosition, nextPosition)
+				mower.Move(nextPosition)
+			} else {
+				fmt.Println("Invalid next position")
+				mower.DiscardMove()
+			}
 
-            wg.Done()
-        }
-    }()
+			wg.Done()
+		}
+	}()
 }
 
 func (l *Lawn) isValidNextPosition(currentPosition, nextPosition coordinates.Position) bool {
-    // ignore if only orientation changed
-    if currentPosition.X == nextPosition.X && currentPosition.Y == nextPosition.Y {
-        return true
-    }
+	// ignore if only orientation changed
+	if currentPosition.X == nextPosition.X && currentPosition.Y == nextPosition.Y {
+		return true
+	}
 
-    if nextPosition.Y < 0 || nextPosition.Y > l.YMax {
-        return false
-    }
-    if nextPosition.X < 0 || nextPosition.X > l.XMax {
-        return false
-    }
+	if nextPosition.Y < 0 || nextPosition.Y > l.YMax {
+		return false
+	}
+	if nextPosition.X < 0 || nextPosition.X > l.XMax {
+		return false
+	}
 
-    // we check if there is no other mower in the next position
-    if _, exist := l.mowersPosition[nextPosition.Hash()]; exist {
-        return false
-    }
+	// we check if there is no other mower in the next position
+	if _, exist := l.mowersPosition[nextPosition.Hash()]; exist {
+		return false
+	}
 
-    return true
+	return true
 }
 
 func (l *Lawn) updateMowersPositionMap(oldPosition, newPosition coordinates.Position) {
-    delete(l.mowersPosition, oldPosition.Hash())
-    l.mowersPosition[newPosition.Hash()] = struct{}{}
+	delete(l.mowersPosition, oldPosition.Hash())
+	l.mowersPosition[newPosition.Hash()] = struct{}{}
 }
